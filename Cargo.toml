@@ -1,13 +1,16 @@
 [package]
-name    = "tanOS_kernel"
-version = "0.1.0"
-edition = "2021"
+name              = "tanOS_kernel"
+version           = "0.1.0"
+edition           = "2021"
+autobins          = false
+autoexamples      = false
+autotests         = false
+autobenches       = false
 
-# Kernel is a staticlib — linked with boot.asm stub via ld
 [lib]
-name              = "tanos"
-path              = "src/main.rs"
-crate-type        = ["staticlib"]
+name       = "tanos"
+path       = "src/main.rs"
+crate-type = ["staticlib"]
 
 [profile.release]
 panic         = "abort"

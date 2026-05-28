@@ -98,7 +98,7 @@ pub extern "C" fn tan_kernel_main(params: *const BootAbiParams) -> ! {
         }
     }
 
-    vga_write(22, 22, b"[ System halted — press reset to reboot ]", COLOR_NORMAL);
+    vga_write(22, 22, b"[ System halted -- press reset to reboot ]", COLOR_NORMAL);
 
     loop {
         unsafe { core::arch::asm!("cli; hlt") };
