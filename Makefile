@@ -2,9 +2,9 @@
 # make       — build build/tanos.bin
 # make clean
 
-NASM  := nasm
-LD    := ld
-CARGO := cargo
+NASM    := nasm
+LD      := ld
+CARGO   := cargo
 OBJCOPY := objcopy
 
 BUILD      := build
@@ -22,10 +22,11 @@ $(BOOT_OBJ): boot.asm | $(BUILD)
 	@echo "[AS]  $<"
 
 $(BUILD)/libtanos.a: src/main.rs Cargo.toml | $(BUILD)
-	$(CARGO) build --release \
+	$(CARGO) +nightly build --release \
 		--target $(TARGET).json \
 		-Z build-std=core,compiler_builtins \
-		-Z build-std-features=compiler-builtins-mem
+		-Z build-std-features=compiler-builtins-mem \
+		-Z json-target-specs
 	cp target/$(TARGET)/release/libtanos.a $@
 	@echo "[CARGO] $@"
 
