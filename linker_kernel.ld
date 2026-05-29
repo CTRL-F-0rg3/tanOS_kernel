@@ -7,7 +7,7 @@ OUTPUT_ARCH(i386:x86-64)
 ENTRY(kernel_entry)
 
 SECTIONS {
-    . = 0x200000;
+    . = 0x100000;
 
     /* Boot header must be first — TootBoot reads it at load address */
     .boot_header : {
