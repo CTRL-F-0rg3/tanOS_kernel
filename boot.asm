@@ -1,5 +1,5 @@
 ; boot.asm — TanOS kernel entry stub
-; Linked with Rust kernel, loaded at 0x100000 by TootBoot
+; Linked at 0x100000 by TootBoot
 
 [BITS 64]
 
@@ -15,20 +15,13 @@ tanos_header:
 
 [SECTION .text]
 extern tan_kernel_main
-extern __bss_start
-extern __bss_end
 
 global kernel_entry
 kernel_entry:
-    mov rsp, 0x300000
-
-    ; Zero BSS
-    mov rdi, __bss_start
-    mov rcx, __bss_end
-    sub rcx, rdi
-    xor al, al
-    rep stosb
-
+    mov rsp, 0x400000
+    and rsp, ~0xF
+    cld
+    xor edi, edi
     call tan_kernel_main
 
 .halt:

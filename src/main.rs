@@ -1,105 +1,84 @@
 //! TanOS kernel — entry point
-//! Called from boot.asm after TootBoot loads us.
 
 #![no_std]
 #![no_main]
+#![allow(dead_code)]
 
-// ---------------------------------------------------------------------------
-// Panic handler (required for no_std)
-// ---------------------------------------------------------------------------
 use core::panic::PanicInfo;
 
-#[panic_handler]
-fn panic(_info: &PanicInfo) -> ! {
-    // Write 'PANIC' to top-right corner of VGA in red
-    let vga = 0xB8000 as *mut u16;
-    let msg = b"!! KERNEL PANIC !!";
+// VGA buffer
+const VGA: *mut u16 = 0xB8000 as *mut u16;
+const WIDTH: usize = 80;
+
+// Purple bg, bright colors
+const C_TITLE: u16 = 0x5F00;   // white on purple
+const C_GREEN: u16 = 0x5A00;   // green on purple
+const C_NORM:  u16 = 0x5700;   // gray on purple
+
+fn vga_clear() {
     unsafe {
-        for (i, &byte) in msg.iter().enumerate() {
-            // red on black = 0x4F
-            *vga.add(i) = (0x4F00) | byte as u16;
+        for i in 0..(80*25) {
+            *VGA.add(i) = C_NORM | 0x20;
         }
     }
+}
+
+fn vga_write(x: usize, y: usize, s: &[u8], color: u16) {
+    unsafe {
+        for (i, &b) in s.iter().enumerate() {
+            *VGA.add(y * WIDTH + x + i) = color | b as u16;
+        }
+    }
+}
+
+#[repr(C)]
+pub struct BootParams {
+    magic:   u32,
+    os_type: u32,
+    lba:     u64,
+    pml4:    u64,
+}
+
+#[no_mangle]
+pub extern "C" fn tan_kernel_main(_params: *const BootParams) -> ! {
+    vga_clear();
+
+    // Draw a simple box
+    unsafe {
+        // Top border
+        *VGA.add(0) = C_GREEN | 0xDA;
+        for i in 1..79 { *VGA.add(i) = C_GREEN | 0xC4; }
+        *VGA.add(79) = C_GREEN | 0xBF;
+        // Sides
+        for r in 1..24 {
+            *VGA.add(r*80)    = C_GREEN | 0xB3;
+            *VGA.add(r*80+79) = C_GREEN | 0xB3;
+        }
+        // Bottom
+        *VGA.add(24*80) = C_GREEN | 0xC0;
+        for i in 1..79 { *VGA.add(24*80+i) = C_GREEN | 0xC4; }
+        *VGA.add(24*80+79) = C_GREEN | 0xD9;
+    }
+
+    vga_write(30,  2, b"TanOS v0.1.0",       C_TITLE);
+    vga_write(25,  4, b"Kernel loaded successfully", C_GREEN);
+    vga_write(28,  6, b"Booted by TootBoot",  C_NORM);
+    vga_write(20, 22, b"[ System halted -- press reset to reboot ]", C_NORM);
+
     loop {
         unsafe { core::arch::asm!("cli; hlt") };
     }
 }
 
-// ---------------------------------------------------------------------------
-// VGA text mode helper
-// ---------------------------------------------------------------------------
-const VGA_BASE: *mut u16 = 0xB8000 as *mut u16;
-const VGA_WIDTH: usize = 80;
-
-// Purple bg (0x5), bright green text (0xA)
-const COLOR_NORMAL: u8 = 0x5A;
-const COLOR_TITLE: u8  = 0x5F;  // purple bg, white text
-
-fn vga_write(x: usize, y: usize, s: &[u8], color: u8) {
+#[panic_handler]
+fn panic(_: &PanicInfo) -> ! {
     unsafe {
-        for (i, &byte) in s.iter().enumerate() {
-            let offset = y * VGA_WIDTH + x + i;
-            *VGA_BASE.add(offset) = ((color as u16) << 8) | byte as u16;
+        let vga = VGA;
+        let msg = b"!! KERNEL PANIC !!";
+        for (i, &b) in msg.iter().enumerate() {
+            *vga.add(i) = 0x4F00 | b as u16;
         }
     }
-}
-
-fn vga_clear() {
-    unsafe {
-        for i in 0..(80 * 25) {
-            *VGA_BASE.add(i) = (0x50 << 8) | b' ' as u16;
-        }
-    }
-}
-
-// ---------------------------------------------------------------------------
-// BootABI params struct (must match bootabi.h)
-// ---------------------------------------------------------------------------
-#[repr(C)]
-pub struct BootAbiParams {
-    pub magic:               u32,
-    pub os_type:             u32,
-    pub partition_lba:       u64,
-    pub pml4_address:        u64,
-    pub cmdline:             [u8; 256],
-    pub kernel_path:         [u8; 128],
-    pub bootloader_version:  u32,
-    pub reserved:            [u8; 64],
-}
-
-// ---------------------------------------------------------------------------
-// Kernel main — called from boot.asm
-// params: pointer to BootAbiParams passed by TootBoot
-// ---------------------------------------------------------------------------
-#[no_mangle]
-pub extern "C" fn tan_kernel_main(params: *const BootAbiParams) -> ! {
-    vga_clear();
-
-    vga_write(30, 1,  b"TanOS v0.1.0",       COLOR_TITLE);
-    vga_write(25, 3,  b"Kernel loaded successfully", COLOR_NORMAL);
-    vga_write(25, 5,  b"Booted by TootBoot",  COLOR_NORMAL);
-
-    // Show bootloader version from params
-    if !params.is_null() {
-        let ver = unsafe { (*params).bootloader_version };
-        let major = (ver >> 16) & 0xFF;
-        let minor = (ver >> 8)  & 0xFF;
-
-        vga_write(25, 7, b"Bootloader version: ", COLOR_NORMAL);
-
-        // Write major digit
-        let major_char = b'0' + major as u8;
-        let minor_char = b'0' + minor as u8;
-        unsafe {
-            let offset = 7 * VGA_WIDTH + 45;
-            *VGA_BASE.add(offset)     = ((COLOR_NORMAL as u16) << 8) | major_char as u16;
-            *VGA_BASE.add(offset + 1) = ((COLOR_NORMAL as u16) << 8) | b'.' as u16;
-            *VGA_BASE.add(offset + 2) = ((COLOR_NORMAL as u16) << 8) | minor_char as u16;
-        }
-    }
-
-    vga_write(22, 22, b"[ System halted -- press reset to reboot ]", COLOR_NORMAL);
-
     loop {
         unsafe { core::arch::asm!("cli; hlt") };
     }
