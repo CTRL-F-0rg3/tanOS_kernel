@@ -60,7 +60,7 @@ pub extern "C" fn tan_kernel_main(_params: *const BootParams) -> ! {
         *VGA.add(24*80+79) = C_GREEN | 0xD9;
     }
 
-    vga_write(30,  2, b"TanOS v0.1.0",       C_TITLE);
+    vga_write(30,  2, b"TanOS ",C_TITLE);
     vga_write(25,  4, b"Kernel loaded successfully", C_GREEN);
     vga_write(28,  6, b"Booted by TootBoot",  C_NORM);
     vga_write(20, 22, b"[ System halted -- press reset to reboot ]", C_NORM);
